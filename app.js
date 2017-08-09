@@ -1,80 +1,68 @@
 const express = require('express');
 const mustacheExpress = require('mustache-express');
-const bodyParser = require('body-parser');
 const models = require('./models');
-
+const bodyParser = require('body-parser');
 const app = express();
 
-
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended : false}));
 app.engine('mustache', mustacheExpress());
 app.set('view engine', 'mustache');
 app.set('views', './views');
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: false}));
 
-var completedIndex = 0;
-
-
-app.get('/', function(req, res) {
-
-  // get the model
-  // query for all of our Todos
-  models.Todo.findAll().then(function (todos){
-    // add the todos to the context
-    var context = {
-      todoList: todos
-      , completed: []
-      , completedId: function(){
-        return completedIndex++;
-      }
-    };
-
-    // render a response
-    res.render('index', context);
+app.get('/', function(req, res){
+  models.todo.findAll().then(function(todos){
+      res.render('index', {model:todos});
   });
-
 });
 
-app.post('/', function(req, res) {
-  // var todo = context.todoList;
-  // todo.push(req.body.todoInput);
-var date = new Date();
-  // get my model
-  models.Todo.findAll().then(function (todos){
-
+app.post('/', function(req, res){
+  models.todo.create({
+    title: req.body.title,
+    priority: req.body.priority,
+    due: new Date(req.body.due),
+    assignee: req.body.assignee
   });
-  // get the data from the request
-  // create the model with the request data build
-  const todo = models.Todo.build({
-  task: req.body.todoInput,
-  createdAt: date,
-  assignee: 'me'
-});
-  // save the model back to the database storeing
-  todo.save().then(function (todo_updated) {
-  console.log(todo_updated.id);
-});
-  // do a redirect
-
   res.redirect('/');
 });
 
-// app.post('/todo/:id', function(req, res) {
-//
-//   // get my model
-//   // get the data from the request
-//   // lookup the correct model using the request data
-//   // update the model with the request data
-//   // save the model back to the database
-//   // do a redirect
-//
-//   var id = req.params.id;
-//   var todoRemove = context.todoList.splice(id, 1);
-//   context.completed.push(todoRemove);
-//   res.redirect('/');
-// });
-
-app.listen(3000, function() {
-  console.log('Successfully started express application!');
+app.post('/complete/:id', function(req, res){
+  models.todo.findOne({
+    where: {
+      id: req.params.id
+    }
+  }).then(function(todo){
+    todo.completed = true;
+    todo.save();
+  });
+  res.redirect('/');
 });
+
+app.post('/update/:id', function(req, res){
+  models.todo.findOne({
+    where: {
+      id: req.params.id
+    }
+  }).then(function(todo){
+    res.render('update', {model:todo});
+  });
+});
+
+app.post('/edit/:id', function(req, res){
+  models.todo.findOne({
+    where: {
+      id: req.params.id
+    }
+  }).then(function(todo){
+    todo.title = req.body.title;
+    todo.priority = req.body.priority;
+    todo.due = new Date(req.body.due);
+    todo.assignee = req.body.assignee;
+    todo.save();
+  });
+  res.redirect('/');
+});
+
+
+app.listen(3000);
